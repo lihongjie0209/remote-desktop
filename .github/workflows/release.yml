@@ -1,0 +1,212 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  # ──────────────────────────────────────────────────────────
+  # Server: Linux (x86_64 + aarch64) + Windows + macOS
+  # ──────────────────────────────────────────────────────────
+  build-server:
+    name: Server (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-22.04
+            archive: tar.gz
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-22.04
+            archive: tar.gz
+            cross: true
+          - target: x86_64-pc-windows-msvc
+            os: windows-2022
+            archive: zip
+          - target: x86_64-apple-darwin
+            os: macos-13
+            archive: tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-14
+            archive: tar.gz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install musl tools (Linux)
+        if: contains(matrix.target, 'linux')
+        run: sudo apt-get install -y musl-tools
+
+      - name: Install cross (aarch64)
+        if: matrix.cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build server
+        shell: bash
+        run: |
+          if [ "${{ matrix.cross }}" = "true" ]; then
+            cross build -p server --release --target ${{ matrix.target }}
+          else
+            cargo build -p server --release --target ${{ matrix.target }}
+          fi
+
+      - name: Package (Unix)
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          BIN=target/${{ matrix.target }}/release/server
+          ASSET=server-${{ matrix.target }}.tar.gz
+          tar czf "$ASSET" -C "$(dirname $BIN)" "$(basename $BIN)"
+          echo "ASSET=$ASSET" >> $GITHUB_ENV
+
+      - name: Package (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $bin = "target\${{ matrix.target }}\release\server.exe"
+          $asset = "server-${{ matrix.target }}.zip"
+          Compress-Archive -Path $bin -DestinationPath $asset
+          echo "ASSET=$asset" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ASSET }}
+
+  # ──────────────────────────────────────────────────────────
+  # Desktop: Windows
+  # ──────────────────────────────────────────────────────────
+  build-desktop-windows:
+    name: Desktop (Windows x64)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install NASM
+        run: |
+          $url = "https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-win64.zip"
+          Invoke-WebRequest -Uri $url -OutFile nasm.zip
+          Expand-Archive nasm.zip -DestinationPath C:\nasm
+          echo "C:\nasm\nasm-2.16.03" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Install frontend deps
+        working-directory: apps/desktop
+        run: npm ci
+
+      - name: Build desktop
+        working-directory: apps/desktop
+        env:
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+        run: npm run tauri build
+
+      - name: Upload MSI + NSIS
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            target/release/bundle/msi/*.msi
+            target/release/bundle/nsis/*-setup.exe
+
+  # ──────────────────────────────────────────────────────────
+  # Desktop: macOS (Intel + Apple Silicon)
+  # ──────────────────────────────────────────────────────────
+  build-desktop-macos:
+    name: Desktop (macOS ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            os: macos-13
+            target: x86_64-apple-darwin
+          - arch: aarch64
+            os: macos-14
+            target: aarch64-apple-darwin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: apps/desktop
+        run: npm ci
+
+      - name: Build desktop
+        working-directory: apps/desktop
+        run: npm run tauri build -- --target ${{ matrix.target }}
+
+      - name: Upload DMG
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+
+  # ──────────────────────────────────────────────────────────
+  # Desktop: Linux
+  # ──────────────────────────────────────────────────────────
+  build-desktop-linux:
+    name: Desktop (Linux x64)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf nasm
+
+      - name: Install frontend deps
+        working-directory: apps/desktop
+        run: npm ci
+
+      - name: Build desktop
+        working-directory: apps/desktop
+        env:
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+        run: npm run tauri build
+
+      - name: Upload AppImage + deb
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            target/release/bundle/appimage/*.AppImage
+            target/release/bundle/deb/*.deb
