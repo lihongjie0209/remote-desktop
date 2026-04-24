@@ -65,7 +65,7 @@ jobs:
         shell: bash
         run: |
           BIN=target/${{ matrix.target }}/release/server
-          ASSET=server-${{ matrix.target }}.tar.gz
+          ASSET=server-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
           tar czf "$ASSET" -C "$(dirname $BIN)" "$(basename $BIN)"
           echo "ASSET=$ASSET" >> $GITHUB_ENV
 
@@ -74,7 +74,7 @@ jobs:
         shell: pwsh
         run: |
           $bin = "target\${{ matrix.target }}\release\server.exe"
-          $asset = "server-${{ matrix.target }}.zip"
+          $asset = "server-${{ github.ref_name }}-${{ matrix.target }}.zip"
           Compress-Archive -Path $bin -DestinationPath $asset
           echo "ASSET=$asset" | Out-File -FilePath $env:GITHUB_ENV -Append
 
@@ -118,12 +118,27 @@ jobs:
           CMAKE_POLICY_VERSION_MINIMUM: "3.5"
         run: npm run tauri build
 
+      - name: Rename artifacts
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $msi = Get-ChildItem target/release/bundle/msi/*.msi | Select-Object -First 1
+          if ($msi) {
+            $dest = "target/release/bundle/msi/RemoteDesk-$tag-windows-x64.msi"
+            Rename-Item $msi.FullName $dest
+          }
+          $nsis = Get-ChildItem target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          if ($nsis) {
+            $dest = "target/release/bundle/nsis/RemoteDesk-$tag-windows-x64-setup.exe"
+            Rename-Item $nsis.FullName $dest
+          }
+
       - name: Upload MSI + NSIS
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            target/release/bundle/msi/*.msi
-            target/release/bundle/nsis/*-setup.exe
+            target/release/bundle/msi/RemoteDesk-${{ github.ref_name }}-windows-x64.msi
+            target/release/bundle/nsis/RemoteDesk-${{ github.ref_name }}-windows-x64-setup.exe
 
   # ──────────────────────────────────────────────────────────
   # Desktop: macOS (Intel + Apple Silicon)
@@ -164,10 +179,21 @@ jobs:
         working-directory: apps/desktop
         run: npm run tauri build -- --target ${{ matrix.target }}
 
+      - name: Rename artifacts
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          ARCH="${{ matrix.arch }}"
+          DMG=$(find target/${{ matrix.target }}/release/bundle/dmg -name "*.dmg" | head -1)
+          if [ -n "$DMG" ]; then
+            DIR=$(dirname "$DMG")
+            mv "$DMG" "$DIR/RemoteDesk-${TAG}-macos-${ARCH}.dmg"
+          fi
+
       - name: Upload DMG
         uses: softprops/action-gh-release@v2
         with:
-          files: target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          files: target/${{ matrix.target }}/release/bundle/dmg/RemoteDesk-${{ github.ref_name }}-macos-${{ matrix.arch }}.dmg
 
   # ──────────────────────────────────────────────────────────
   # Desktop: Linux
@@ -204,10 +230,23 @@ jobs:
           CMAKE_POLICY_VERSION_MINIMUM: "3.5"
         run: npm run tauri build
 
+      - name: Rename artifacts
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          APP=$(find target/release/bundle/appimage -name "*.AppImage" | head -1)
+          if [ -n "$APP" ]; then
+            mv "$APP" "target/release/bundle/appimage/RemoteDesk-${TAG}-linux-x64.AppImage"
+          fi
+          DEB=$(find target/release/bundle/deb -name "*.deb" | head -1)
+          if [ -n "$DEB" ]; then
+            mv "$DEB" "target/release/bundle/deb/RemoteDesk-${TAG}-linux-x64.deb"
+          fi
+
       - name: Upload AppImage + deb
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            target/release/bundle/appimage/*.AppImage
-            target/release/bundle/deb/*.deb
+            target/release/bundle/appimage/RemoteDesk-${{ github.ref_name }}-linux-x64.AppImage
+            target/release/bundle/deb/RemoteDesk-${{ github.ref_name }}-linux-x64.deb
 
