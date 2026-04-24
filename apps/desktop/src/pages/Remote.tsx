@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -81,7 +81,7 @@ export default function Remote() {
 
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
 
-  const serverUrl = (localStorage.getItem(STORAGE_SERVER_URL) ?? "http://127.0.0.1:50055")
+  const serverUrl = (localStorage.getItem(STORAGE_SERVER_URL) ?? "https://remote-desktop.xuntukeji.cn")
     .replace(/localhost/g, "127.0.0.1");
 
   useEffect(() => {

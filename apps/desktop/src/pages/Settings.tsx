@@ -9,7 +9,7 @@ export default function Settings() {
   const navigate = useNavigate();
 
   const [serverUrl, setServerUrl] = useState(
-    () => (localStorage.getItem(STORAGE_SERVER_URL) ?? "http://127.0.0.1:50055")
+    () => (localStorage.getItem(STORAGE_SERVER_URL) ?? "https://remote-desktop.xuntukeji.cn")
       .replace(/localhost/g, "127.0.0.1")
   );
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
