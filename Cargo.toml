@@ -21,3 +21,8 @@ clap = { version = "4", features = ["derive"] }
 uuid = { version = "1", features = ["v4"] }
 anyhow = "1"
 thiserror = "1"
+
+# xcap 0.2.2 has a type-inference bug on macOS (E0282 in boxed.rs).
+# Patch to HEAD until a fixed release is published.
+[patch.crates-io]
+xcap = { git = "https://github.com/nashaofu/xcap" }

@@ -43,11 +43,6 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install protoc
-        uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install musl tools (Linux)
         if: contains(matrix.target, 'linux')
         run: sudo apt-get install -y musl-tools
@@ -98,11 +93,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
-
-      - name: Install protoc
-        uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Node
         uses: actions/setup-node@v4
@@ -159,11 +149,6 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install protoc
-        uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install Node
         uses: actions/setup-node@v4
         with:
@@ -195,11 +180,6 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install protoc
-        uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install Node
         uses: actions/setup-node@v4
         with:
@@ -212,7 +192,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
-            librsvg2-dev patchelf nasm
+            librsvg2-dev patchelf nasm libxdo-dev libturbojpeg0-dev
 
       - name: Install frontend deps
         working-directory: apps/desktop

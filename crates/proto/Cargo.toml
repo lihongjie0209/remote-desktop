@@ -9,3 +9,5 @@ prost  = "0.13"
 
 [build-dependencies]
 tonic-build = "0.12"
+# Vendored protoc binary — works on all platforms including Docker/cross builds.
+protoc-bin-vendored = "3"
