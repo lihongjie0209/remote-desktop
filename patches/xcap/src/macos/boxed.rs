@@ -1,7 +1,8 @@
 use core_foundation::{
     array::CFArrayRef,
-    base::{CFRelease, ToVoid},
+    base::CFRelease,
 };
+use std::os::raw::c_void;
 use std::ops::Deref;
 
 #[derive(Debug)]
@@ -19,8 +20,8 @@ impl Deref for BoxCFArrayRef {
 impl Drop for BoxCFArrayRef {
     fn drop(&mut self) {
         unsafe {
-            // Fully-qualified path required by Rust >=1.82 stricter type inference (E0282).
-            CFRelease(<CFArrayRef as ToVoid<_>>::to_void(&self.cf_array_ref));
+            // Cast directly to avoid ToVoid<T> type-inference ambiguity (E0282) on Rust >=1.82.
+            CFRelease(self.cf_array_ref as *const c_void);
         }
     }
 }
