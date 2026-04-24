@@ -96,15 +96,30 @@ export default function Remote() {
     if (!pwd) return;
     setHostStatus("starting");
     setHostError(null);
-    try {
-      await invoke("set_server_url", { url });
-      const id = await invoke<string>("create_room", { password: pwd, deviceId: did });
-      localStorage.setItem(STORAGE_PWD, pwd);
-      setRoomId(id);
-      setHostStatus("waiting");
-    } catch (e) {
-      setHostError(String(e));
-      setHostStatus("error");
+
+    const MAX_RETRIES = 5;
+    const RETRY_DELAYS = [1000, 2000, 3000, 4000, 5000]; // ms
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await invoke("set_server_url", { url });
+        const id = await invoke<string>("create_room", { password: pwd, deviceId: did });
+        localStorage.setItem(STORAGE_PWD, pwd);
+        setRoomId(id);
+        setHostStatus("waiting");
+        setHostError(null);
+        return;
+      } catch (e) {
+        if (attempt < MAX_RETRIES) {
+          const delay = RETRY_DELAYS[attempt];
+          setHostError(`连接失败，${delay / 1000}s 后重试 (${attempt + 1}/${MAX_RETRIES})…`);
+          await new Promise((r) => setTimeout(r, delay));
+          // still "starting" while retrying
+        } else {
+          setHostError(String(e));
+          setHostStatus("error");
+        }
+      }
     }
   }, []);
 
@@ -240,7 +255,11 @@ export default function Remote() {
             </div>
           </div>
 
-          {hostError && <p className="error-msg">{hostError}</p>}
+          {hostError && (
+            <p className={`error-msg ${hostStatus === "starting" ? "error-msg-retrying" : ""}`}>
+              {hostError}
+            </p>
+          )}
 
           <div className="panel-actions">
             {hostStatus === "starting" && (

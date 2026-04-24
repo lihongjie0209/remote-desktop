@@ -375,6 +375,9 @@ html, body, #root {
   color: var(--red);
   margin-top: 8px;
 }
+.error-msg-retrying {
+  color: #f0a500;
+}
 
 /* ── Status badges ───────────────────────────────────────────────────────── */
 .badge {
