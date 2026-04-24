@@ -106,7 +106,7 @@ pub(crate) mod commands {
         *app_state.room_id.write().await = Some(confirmed_id.clone());
 
         // Input event channel: relay_client → InputController.
-        let (input_tx, input_rx) = mpsc::channel::<InputEvent>(64);
+        let (input_tx, mut input_rx) = mpsc::channel::<InputEvent>(64);
         *app_state.input_tx.lock().await = Some(input_tx.clone());
 
         // Stop channel.
@@ -119,23 +119,25 @@ pub(crate) mod commands {
 
         tokio::spawn(async move {
             // Input injection task.
+            // Spawn a dedicated OS thread because Enigo on macOS wraps CGEventSource
+            // (a raw CoreFoundation pointer) which is not `Send`, preventing use of
+            // tokio::spawn. A regular thread + blocking_recv is the correct pattern.
             let (sw, sh) = get_primary_screen_size();
-            let mut injector = match InputController::new(sw, sh) {
-                Ok(i) => i,
-                Err(e) => {
-                    tracing::error!("InputController unavailable: {e}");
-                    return;
-                }
-            };
-            let mut input_rx = input_rx;
-            let app_clone = app_handle.clone();
-            tokio::spawn(async move {
-                while let Some(evt) = input_rx.recv().await {
+            std::thread::spawn(move || {
+                let mut injector = match InputController::new(sw, sh) {
+                    Ok(i) => i,
+                    Err(e) => {
+                        tracing::error!("InputController unavailable: {e}");
+                        return;
+                    }
+                };
+                while let Some(evt) = input_rx.blocking_recv() {
                     if let Err(e) = injector.handle(&evt) {
                         tracing::warn!("input inject error: {e}");
                     }
                 }
             });
+            let app_clone = app_handle.clone();
 
             match relay_client::run_host_session(
                 server_url,
