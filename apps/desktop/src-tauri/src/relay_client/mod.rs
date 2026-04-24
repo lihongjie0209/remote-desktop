@@ -20,17 +20,22 @@ use tonic::transport::Channel;
 const TILE_SIZE: u32 = 128;
 
 /// Send a full keyframe every N delta frames to let new clients sync, and to
-/// recover from any accumulated error.  At 20 fps this is every ~3 seconds.
-const KEYFRAME_INTERVAL: u32 = 60;
+/// recover from any accumulated error.  At 20 fps this is every ~6 seconds.
+const KEYFRAME_INTERVAL: u32 = 120;
 
-/// JPEG quality for keyframes (slightly higher — bandwidth amortised over time).
-const QUALITY_KEY: u8 = 80;
+/// JPEG quality for keyframes.
+const QUALITY_KEY: u8 = 75;
 
 /// JPEG quality for dirty tiles.
-const QUALITY_TILE: u8 = 75;
+const QUALITY_TILE: u8 = 65;
 
 /// Capture interval (target ~20 fps).
 const CAPTURE_MS: u64 = 50;
+
+/// After this many consecutive idle captures (no dirty tiles), back off to a
+/// slower poll rate to avoid burning CPU on static screens.
+const IDLE_BACKOFF_AFTER: u32 = 6;   // 300 ms at 20 fps
+const CAPTURE_MS_IDLE: u64 = 150;    // ~6 fps idle poll
 
 // ─────────────────────────────────────────────────────────────────────────────
 // gRPC channel factory
@@ -74,11 +79,11 @@ fn encode_jpeg(
     quality: u8,
 ) -> Result<Vec<u8>> {
     comp.set_quality(quality as i32);
-    comp.set_subsamp(turbojpeg::Subsamp::None);
+    comp.set_subsamp(turbojpeg::Subsamp::Sub2x2); // 4:2:0 — standard JPEG chroma subsampling
     let image = turbojpeg::Image {
         pixels: img.as_raw().as_slice(),
         width:  img.width()  as usize,
-        pitch:  img.width()  as usize * 4, // RGBA — 4 bytes per pixel
+        pitch:  img.width()  as usize * 4,
         height: img.height() as usize,
         format: turbojpeg::PixelFormat::RGBA,
     };
@@ -102,9 +107,9 @@ fn encode_tile(
     debug_assert!(y + h <= img.height(), "tile y+h out of bounds");
 
     comp.set_quality(quality as i32);
-    comp.set_subsamp(turbojpeg::Subsamp::None);
+    comp.set_subsamp(turbojpeg::Subsamp::Sub2x2); // 4:2:0 — 30-50% smaller than 4:4:4
 
-    let pitch  = img.width() as usize * 4; // stride of the full frame (bytes per row)
+    let pitch  = img.width() as usize * 4;
     let offset = y as usize * pitch + x as usize * 4; // byte offset of tile's top-left pixel
     let image = turbojpeg::Image {
         pixels: &img.as_raw()[offset..],
@@ -129,6 +134,8 @@ struct CaptureState {
     screen_h: u32,
     /// Running counter; triggers a periodic keyframe.
     delta_count: u32,
+    /// Consecutive captures that produced no dirty tiles (idle detection).
+    idle_count: u32,
     /// When set, the next frame is forced to be a full keyframe regardless of
     /// tile hashes.  Used to sync a newly-joined client immediately.
     force_keyframe: Arc<std::sync::atomic::AtomicBool>,
@@ -143,6 +150,7 @@ impl CaptureState {
             screen_w: 0,
             screen_h: 0,
             delta_count: 0,
+            idle_count: 0,
             force_keyframe,
             compressor: turbojpeg::Compressor::new()
                 .expect("failed to initialise TurboJPEG compressor"),
@@ -157,6 +165,15 @@ impl CaptureState {
             || self.delta_count % KEYFRAME_INTERVAL == 0
             // Consume the flag atomically; true means a client just joined.
             || self.force_keyframe.swap(false, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Sleep duration for this capture cycle: fast when active, slow when idle.
+    fn sleep_interval(&self) -> Duration {
+        if self.idle_count >= IDLE_BACKOFF_AFTER {
+            Duration::from_millis(CAPTURE_MS_IDLE)
+        } else {
+            Duration::from_millis(CAPTURE_MS)
+        }
     }
 }
 
@@ -254,8 +271,11 @@ fn compute_frame(state: &mut CaptureState, img: &image::RgbaImage) -> Option<Fra
     }
 
     if dirty.is_empty() {
+        state.idle_count = state.idle_count.saturating_add(1);
         return None; // screen unchanged — skip this frame entirely
     }
+
+    state.idle_count = 0; // reset idle counter on activity
 
     Some(FrameData {
         width: w,
@@ -317,7 +337,6 @@ pub async fn run_host_session(
 
     std::thread::spawn(move || {
         let mut state = CaptureState::new(force_keyframe_capture);
-        let interval = Duration::from_millis(CAPTURE_MS);
         loop {
             let t0 = Instant::now();
             match crate::capture::capture_primary() {
@@ -334,6 +353,7 @@ pub async fn run_host_session(
                 }
                 Err(e) => tracing::warn!("screen capture error: {e}"),
             }
+            let interval = state.sleep_interval();
             let elapsed = t0.elapsed();
             if elapsed < interval {
                 std::thread::sleep(interval - elapsed);
