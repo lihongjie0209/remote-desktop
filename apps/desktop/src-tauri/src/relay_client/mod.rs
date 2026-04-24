@@ -43,7 +43,14 @@ const CAPTURE_MS_IDLE: u64 = 150;    // ~6 fps idle poll
 
 pub async fn connect(server_url: &str) -> Result<RemoteDesktopClient<Channel>> {
     let mut builder = tonic::transport::Channel::from_shared(server_url.to_owned())?
-        .connect_timeout(Duration::from_secs(5));
+        .connect_timeout(Duration::from_secs(10))
+        // Send HTTP/2 PING every 20s to keep the connection alive through
+        // Traefik / load-balancer idle timeouts (typically 60s).
+        .http2_keep_alive_interval(Duration::from_secs(20))
+        // If the peer doesn't respond to PING within 10s, close the connection.
+        .keep_alive_timeout(Duration::from_secs(10))
+        // Send keepalive even when there are no active streams (host idle mode).
+        .keep_alive_while_idle(true);
     // For HTTPS endpoints, configure TLS with native system roots
     if server_url.starts_with("https://") {
         let tls = ClientTlsConfig::new().with_native_roots();

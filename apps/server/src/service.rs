@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use dashmap::DashMap;
 use proto::remote_desktop::{
@@ -500,6 +501,10 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
     let svc = RemoteDesktopService::new();
 
     TonicServer::builder()
+        // Send HTTP/2 PING to clients every 20s (matches client keep_alive_interval).
+        .http2_keepalive_interval(Some(Duration::from_secs(20)))
+        // Close connection if client doesn't respond to PING within 20s.
+        .http2_keepalive_timeout(Some(Duration::from_secs(20)))
         .add_service(RemoteDesktopServer::new(svc))
         .serve(addr)
         .await?;
