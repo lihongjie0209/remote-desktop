@@ -7021,8 +7021,6 @@ checksum = "ea6fc2961e4ef194dcbfe56bb845534d0dc8098940c7e5c012a258bfec6701bd"
 [[package]]
 name = "xcap"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0339c905b438f0f25a7219936ae58c778725ea4920062f18109b0f961877100d"
 dependencies = [
  "core-foundation 0.10.1",
  "core-graphics 0.24.0",
@@ -7297,8 +7295,3 @@ dependencies = [
  "syn 2.0.117",
  "winnow 0.7.15",
 ]
-
-[[patch.unused]]
-name = "xcap"
-version = "0.9.4"
-source = "git+https://github.com/nashaofu/xcap#b2dc3232c994825bda175c5d1907b540b3af0abe"
