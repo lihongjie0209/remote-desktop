@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
-use tonic::transport::Channel;
+use tonic::transport::{Channel, ClientTlsConfig};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -42,10 +42,14 @@ const CAPTURE_MS_IDLE: u64 = 150;    // ~6 fps idle poll
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn connect(server_url: &str) -> Result<RemoteDesktopClient<Channel>> {
-    let channel = tonic::transport::Channel::from_shared(server_url.to_owned())?
-        .connect_timeout(Duration::from_secs(5))
-        .connect()
-        .await?;
+    let mut builder = tonic::transport::Channel::from_shared(server_url.to_owned())?
+        .connect_timeout(Duration::from_secs(5));
+    // For HTTPS endpoints, configure TLS with native system roots
+    if server_url.starts_with("https://") {
+        let tls = ClientTlsConfig::new().with_native_roots();
+        builder = builder.tls_config(tls)?;
+    }
+    let channel = builder.connect().await?;
     Ok(RemoteDesktopClient::new(channel)
         .max_decoding_message_size(64 * 1024 * 1024)
         .max_encoding_message_size(64 * 1024 * 1024))
