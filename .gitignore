@@ -1,0 +1,46 @@
+# Rust / Cargo
+target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Node / npm
+node_modules/
+dist/
+.pnp/
+.pnp.js
+
+# Tauri
+apps/desktop/src-tauri/target/
+apps/desktop/dist/
+apps/desktop/.tauri/
+
+# IDE
+.idea/
+.vscode/
+*.suo
+*.user
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+*.exe
+*.msi
+*.dmg
+*.deb
+*.AppImage
+bundle/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temp
+tmp/
+temp/

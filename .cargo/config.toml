@@ -1,0 +1,14 @@
+# Workspace-level Cargo configuration.
+# Sets libvpx discovery env vars so developers don't need to set them manually.
+
+[env]
+VPX_LIB_DIR     = "C:\\vcpkg\\packages\\libvpx_x64-windows-static\\lib"
+VPX_INCLUDE_DIR = "C:\\vcpkg\\packages\\libvpx_x64-windows-static\\include"
+VPX_STATIC      = "1"
+VPX_NO_PKG_CONFIG = "1"
+VPX_VERSION     = "1.13.0"
+
+# turbojpeg-sys bundles libjpeg-turbo and builds it with CMake.
+# CMake 4.0+ removed support for cmake_minimum_required(VERSION < 3.5).
+# This env var makes CMake accept old policy declarations.
+CMAKE_POLICY_VERSION_MINIMUM = "3.5"

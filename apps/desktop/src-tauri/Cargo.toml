@@ -1,0 +1,62 @@
+[package]
+name = "desktop"
+version = "0.1.0"
+description = "Remote Desktop - Tauri App"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+name = "desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# gRPC / proto
+tonic = { version = "0.12", features = ["transport"] }
+prost = "0.13"
+proto = { path = "../../../crates/proto" }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# Screen capture (cross-platform)
+xcap = "0.2"
+
+# Cross-platform input injection
+enigo = "0.2"
+
+# Clipboard
+arboard = "3"
+
+# Image encoding (JPEG)
+image = "0.25"
+# TurboJPEG (libjpeg-turbo bindings) — ~3-5x faster than image crate's JPEG encoder.
+# Requires libjpeg-turbo installed:
+#   Windows : winget install libjpeg-turbo.libjpeg-turbo  (installs to C:\libjpeg-turbo64)
+#   macOS   : brew install jpeg-turbo
+#   Ubuntu  : apt install libturbojpeg-dev
+turbojpeg = "0.5"
+base64 = "0.22"
+bytes = "1"
+
+# Utilities
+uuid = { version = "1", features = ["v4"] }
+

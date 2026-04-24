@@ -1,0 +1,172 @@
+syntax = "proto3";
+
+package remote_desktop;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Service
+// ─────────────────────────────────────────────────────────────────────────────
+
+service RemoteDesktop {
+  // Register (or reclaim) a persistent device ID.
+  rpc RegisterDevice(RegisterRequest) returns (RegisterResponse);
+
+  // Host mode: bidirectional stream.
+  // First message MUST be HostAnnounce; subsequent messages are FrameData /
+  // ClipboardData / Heartbeat.  Server streams back InputEvent, ClipboardData,
+  // session lifecycle events, and the peer's public address for P2P.
+  rpc HostSession(stream HostMessage) returns (stream ServerToHost);
+
+  // Client mode: bidirectional stream.
+  // First message MUST be ClientJoin; subsequent messages are InputEvent /
+  // ClipboardData / Heartbeat.  Server streams back FrameData, ClipboardData,
+  // and session lifecycle events.
+  rpc ClientSession(stream ClientMessage) returns (stream ServerToClient);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Registration
+// ─────────────────────────────────────────────────────────────────────────────
+
+message RegisterRequest {
+  // Pass a previously obtained device_id to reclaim it, or leave empty to
+  // get a freshly generated one.
+  string device_id = 1;
+}
+
+message RegisterResponse {
+  string device_id = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Host stream  (Desktop → Server)
+// ─────────────────────────────────────────────────────────────────────────────
+
+message HostMessage {
+  oneof payload {
+    HostAnnounce  announce  = 1;
+    FrameData     frame     = 2;
+    ClipboardData clipboard = 3;
+    Heartbeat     heartbeat = 4;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Server → Host stream
+// ─────────────────────────────────────────────────────────────────────────────
+
+message ServerToHost {
+  oneof payload {
+    ClientJoined  client_joined  = 1;
+    ClientLeft    client_left    = 2;
+    InputEvent    input          = 3;
+    ClipboardData clipboard      = 4;
+    // Client's observed public address – used to attempt P2P direct connect.
+    PeerEndpoint  peer_endpoint  = 5;
+    ServerError   error          = 9;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Client stream  (Desktop → Server)
+// ─────────────────────────────────────────────────────────────────────────────
+
+message ClientMessage {
+  oneof payload {
+    ClientJoin    join      = 1;
+    InputEvent    input     = 2;
+    ClipboardData clipboard = 3;
+    Heartbeat     heartbeat = 4;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Server → Client stream
+// ─────────────────────────────────────────────────────────────────────────────
+
+message ServerToClient {
+  oneof payload {
+    JoinResult    join_result = 1;
+    FrameData     frame       = 2;
+    ClipboardData clipboard   = 3;
+    HostLeft      host_left   = 4;
+    ServerError   error       = 9;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared payload types
+// ─────────────────────────────────────────────────────────────────────────────
+
+// A single dirty tile — a sub-rectangle of the screen that changed.
+message TileUpdate {
+  uint32 x          = 1;  // left edge in screen pixels
+  uint32 y          = 2;  // top edge in screen pixels
+  uint32 tile_width = 3;
+  uint32 tile_height = 4;
+  bytes  jpeg_data  = 5;
+}
+
+// FrameData carries either a full keyframe or a list of dirty tiles.
+//
+//   is_keyframe = true  → jpeg_data holds the full-screen JPEG; tiles is empty.
+//   is_keyframe = false → tiles holds only changed regions; jpeg_data is empty.
+//                         If tiles is also empty the screen did not change —
+//                         the receiver should keep the previous canvas state.
+message FrameData {
+  uint32 width       = 1;  // current screen width
+  uint32 height      = 2;  // current screen height
+  bool   is_keyframe = 3;
+  bytes  jpeg_data   = 4;  // full JPEG (keyframe only)
+  repeated TileUpdate tiles = 5;  // dirty tiles (delta only)
+}
+
+message InputEvent {
+  oneof event {
+    MouseMove   mouse_move   = 1;
+    MouseButton mouse_button = 2;
+    MouseScroll mouse_scroll = 3;
+    KeyEvent    key          = 4;
+  }
+}
+
+message MouseMove   { float x = 1; float y = 2; }          // normalised 0..1
+message MouseButton { string button = 1; bool pressed = 2; }
+message MouseScroll { int32  dx     = 1; int32 dy = 2;     }
+message KeyEvent    { string key    = 1; bool pressed = 2; }
+
+message ClipboardData { string text = 1; }
+message Heartbeat     {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session lifecycle
+// ─────────────────────────────────────────────────────────────────────────────
+
+message HostAnnounce {
+  string device_id = 1;
+  string password  = 2;
+}
+
+message ClientJoin {
+  string device_id = 1;  // target host device_id
+  string password  = 2;
+}
+
+message ClientJoined {
+  string peer_id     = 1;
+  // Client's observed public address (ip:port) for P2P hole-punch attempt.
+  string public_addr = 2;
+}
+
+message ClientLeft   { string peer_id = 1; }
+
+message PeerEndpoint { string addr = 1; }
+
+message JoinResult {
+  bool   ok               = 1;
+  string error            = 2;
+  // Host's observed public address for P2P.
+  string host_public_addr = 3;
+}
+
+message HostLeft    {}
+message ServerError { string message = 1; }
