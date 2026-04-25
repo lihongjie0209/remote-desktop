@@ -125,12 +125,12 @@ jobs:
           $msi = Get-ChildItem target/release/bundle/msi/*.msi | Select-Object -First 1
           if ($msi) {
             $dest = "target/release/bundle/msi/RemoteDesk-$tag-windows-x64.msi"
-            Rename-Item $msi.FullName $dest
+            Move-Item $msi.FullName $dest
           }
           $nsis = Get-ChildItem target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
           if ($nsis) {
             $dest = "target/release/bundle/nsis/RemoteDesk-$tag-windows-x64-setup.exe"
-            Rename-Item $nsis.FullName $dest
+            Move-Item $nsis.FullName $dest
           }
 
       - name: Upload MSI + NSIS
