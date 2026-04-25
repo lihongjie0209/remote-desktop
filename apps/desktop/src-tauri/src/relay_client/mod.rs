@@ -38,6 +38,23 @@ const IDLE_BACKOFF_AFTER: u32 = 6;   // 300 ms at 20 fps
 const CAPTURE_MS_IDLE: u64 = 150;    // ~6 fps idle poll
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Error formatting helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Format a `tonic::Status` with its full cause chain so the frontend can
+/// display detailed diagnostic information.
+fn fmt_status(e: &tonic::Status) -> String {
+    use std::error::Error;
+    let mut msg = format!("gRPC {}: {}", e.code(), e.message());
+    let mut source: Option<&dyn Error> = e.source();
+    while let Some(s) = source {
+        msg.push_str(&format!("\n  caused by: {s}"));
+        source = s.source();
+    }
+    msg
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // gRPC channel factory
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -428,8 +445,8 @@ pub async fn run_host_session(
                         break;
                     }
                     Err(e) => {
-                        tracing::error!("host session recv error: {e}");
-                        let _ = app_handle.emit("connection-error", e.to_string());
+                        tracing::error!("host session recv error: {}", fmt_status(&e));
+                        let _ = app_handle.emit("connection-error", fmt_status(&e));
                         break;
                     }
                 }
@@ -463,8 +480,8 @@ pub async fn run_client_session(
     let mut client = match connect(&server_url).await {
         Ok(c) => { tracing::info!("[client] gRPC channel established"); c }
         Err(e) => {
-            tracing::error!("[client] failed to connect to server: {e}");
-            let _ = join_tx.send(Err(anyhow::anyhow!("{e}")));
+            tracing::error!("[client] failed to connect to server: {e:#}");
+            let _ = join_tx.send(Err(anyhow::anyhow!("{:#}", e)));
             return Err(e);
         }
     };
@@ -501,8 +518,8 @@ pub async fn run_client_session(
     let response = match client.client_session(ReceiverStream::new(out_rx)).await {
         Ok(r) => { tracing::info!("[client] stream opened, waiting for JoinResult"); r }
         Err(e) => {
-            tracing::error!("[client] client_session RPC failed: {e}");
-            let _ = join_tx.send(Err(anyhow::anyhow!("{e}")));
+            tracing::error!("[client] client_session RPC failed: {}", fmt_status(&e));
+            let _ = join_tx.send(Err(anyhow::anyhow!("{}", fmt_status(&e))));
             return Err(e.into());
         }
     };
@@ -538,8 +555,8 @@ pub async fn run_client_session(
             return Err(err);
         }
         Err(e) => {
-            tracing::error!("[client] error waiting for JoinResult: {e}");
-            let _ = join_tx.send(Err(anyhow::anyhow!("{e}")));
+            tracing::error!("[client] error waiting for JoinResult: {}", fmt_status(&e));
+            let _ = join_tx.send(Err(anyhow::anyhow!("{}", fmt_status(&e))));
             return Err(e.into());
         }
     }
@@ -590,8 +607,8 @@ pub async fn run_client_session(
                         break;
                     }
                     Err(e) => {
-                        tracing::error!("[client] recv error: {e}");
-                        let _ = app_handle.emit("connection-error", e.to_string());
+                        tracing::error!("[client] recv error: {}", fmt_status(&e));
+                        let _ = app_handle.emit("connection-error", fmt_status(&e));
                         break;
                     }
                 }

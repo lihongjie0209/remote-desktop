@@ -151,8 +151,8 @@ pub(crate) mod commands {
             {
                 Ok(_) => {}
                 Err(e) => {
-                    tracing::error!("host session error: {e}");
-                    let _ = app_handle.emit("connection-error", e.to_string());
+                    tracing::error!("host session error: {e:#}");
+                    let _ = app_handle.emit("connection-error", format!("{e:#}"));
                 }
             }
             state_clone.reset().await;
@@ -200,8 +200,8 @@ pub(crate) mod commands {
             .await;
 
             if let Err(e) = result {
-                tracing::error!("[join_room] session ended with error: {e}");
-                let _ = app_handle.emit("connection-error", e.to_string());
+                tracing::error!("[join_room] session ended with error: {e:#}");
+                let _ = app_handle.emit("connection-error", format!("{e:#}"));
             }
             state_clone.reset().await;
         });
@@ -209,7 +209,7 @@ pub(crate) mod commands {
         // Block until JoinResult is known.
         match join_rx.await {
             Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e.to_string()),
+            Ok(Err(e)) => Err(format!("{e:#}")),
             Err(_) => Err("connection task dropped before join result".to_string()),
         }
     }
