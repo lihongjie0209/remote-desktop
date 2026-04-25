@@ -136,6 +136,27 @@ impl RemoteDesktop for RemoteDesktopService {
         // Outbound channel (server → host).
         let (tx, rx) = mpsc::channel::<Result<ServerToHost, Status>>(64);
 
+        // Keepalive: send a heartbeat every 30s to prevent Traefik h2c idle timeout.
+        let hb_tx = tx.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(30));
+            interval.tick().await; // skip first immediate tick
+            loop {
+                interval.tick().await;
+                if hb_tx
+                    .send(Ok(ServerToHost {
+                        payload: Some(proto::remote_desktop::server_to_host::Payload::Heartbeat(
+                            proto::remote_desktop::Heartbeat {},
+                        )),
+                    }))
+                    .await
+                    .is_err()
+                {
+                    break; // host disconnected
+                }
+            }
+        });
+
         tokio::spawn(async move {
             use proto::remote_desktop::host_message::Payload;
 
@@ -269,6 +290,27 @@ impl RemoteDesktop for RemoteDesktopService {
         let registry = Arc::clone(&self.registry);
 
         let (tx, rx) = mpsc::channel::<Result<ServerToClient, Status>>(64);
+
+        // Keepalive: send a heartbeat every 30s to prevent Traefik h2c idle timeout.
+        let hb_tx = tx.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(30));
+            interval.tick().await; // skip first immediate tick
+            loop {
+                interval.tick().await;
+                if hb_tx
+                    .send(Ok(ServerToClient {
+                        payload: Some(proto::remote_desktop::server_to_client::Payload::Heartbeat(
+                            proto::remote_desktop::Heartbeat {},
+                        )),
+                    }))
+                    .await
+                    .is_err()
+                {
+                    break; // client disconnected
+                }
+            }
+        });
 
         tokio::spawn(async move {
             use proto::remote_desktop::client_message::Payload;

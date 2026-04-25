@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import ErrorDisplay from "../components/ErrorDisplay";
 
 type HostStatus = "idle" | "starting" | "waiting" | "hosting" | "error";
 type ClientStatus = "idle" | "connecting" | "error";
@@ -256,9 +257,10 @@ export default function Remote() {
           </div>
 
           {hostError && (
-            <p className={`error-msg ${hostStatus === "starting" ? "error-msg-retrying" : ""}`}>
-              {hostError}
-            </p>
+            <ErrorDisplay
+              error={hostError}
+              className={hostStatus === "starting" ? "error-msg-retrying" : ""}
+            />
           )}
 
           <div className="panel-actions">
@@ -312,7 +314,7 @@ export default function Remote() {
             </button>
           </div>
 
-          {clientError && <p className="error-msg">{clientError}</p>}
+          {clientError && <ErrorDisplay error={clientError} />}
 
           {history.length > 0 && (
             <div className="history-section">

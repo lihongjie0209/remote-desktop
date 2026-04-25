@@ -62,6 +62,7 @@ message ServerToHost {
     ClipboardData clipboard      = 4;
     // Client's observed public address – used to attempt P2P direct connect.
     PeerEndpoint  peer_endpoint  = 5;
+    Heartbeat     heartbeat      = 8;
     ServerError   error          = 9;
   }
 }
@@ -89,6 +90,7 @@ message ServerToClient {
     FrameData     frame       = 2;
     ClipboardData clipboard   = 3;
     HostLeft      host_left   = 4;
+    Heartbeat     heartbeat   = 8;
     ServerError   error       = 9;
   }
 }

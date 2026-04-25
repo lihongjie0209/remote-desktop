@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import ErrorDisplay, { toFriendlyMessage } from "../components/ErrorDisplay";
 
 type ConnState = "connecting" | "connected" | "disconnected" | "error";
 
@@ -276,7 +277,7 @@ export default function Session() {
           {connState === "connecting" && "正在建立连接…"}
           {connState === "connected" && "已连接"}
           {connState === "disconnected" && "对端已断开"}
-          {connState === "error" && (errorMsg ?? "连接错误")}
+          {connState === "error" && (errorMsg ? toFriendlyMessage(errorMsg) : "连接错误")}
         </span>
         {connState === "connected" && (
           <span className="session-stats">
@@ -304,11 +305,13 @@ export default function Session() {
           <div className="session-error-icon">
             {connState === "error" ? "✕" : "⏏"}
           </div>
-          <p className="session-error-text">
-            {connState === "disconnected"
-              ? "对端已断开连接"
-              : (errorMsg ?? "连接出现错误")}
-          </p>
+          {connState === "disconnected" ? (
+            <p className="session-error-text">对端已断开连接</p>
+          ) : errorMsg ? (
+            <ErrorDisplay error={errorMsg} className="session-error-detail" />
+          ) : (
+            <p className="session-error-text">连接出现错误</p>
+          )}
           <button className="btn btn-outline" onClick={disconnect}>
             返回主页
           </button>

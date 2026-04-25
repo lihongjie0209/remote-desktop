@@ -379,7 +379,76 @@ html, body, #root {
   color: #f0a500;
 }
 
-/* ── Status badges ───────────────────────────────────────────────────────── */
+/* ── ErrorDisplay component ─────────────────────────────────────────────── */
+.error-display {
+  font-size: 12px;
+  color: var(--red);
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+.error-display.error-msg-retrying {
+  color: #f0a500;
+}
+.error-display.error-msg-retrying .error-display-detail-btn {
+  color: #f0a500;
+  border-color: #f0a500;
+}
+.error-display-msg {
+  flex: 1 1 auto;
+}
+.error-display-detail-btn {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--red);
+  background: none;
+  border: 1px solid var(--red);
+  border-radius: 4px;
+  padding: 1px 7px;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+.error-display-detail-btn:hover {
+  opacity: 1;
+}
+.error-display-detail {
+  width: 100%;
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-family: monospace;
+  color: rgba(255,255,255,0.55);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 120px;
+  overflow-y: auto;
+}
+/* Session error overlay uses a slightly larger style */
+.session-error-detail {
+  font-size: 14px;
+  justify-content: center;
+  text-align: center;
+  color: rgba(255,255,255,0.75);
+}
+.session-error-detail .error-display-msg {
+  flex: unset;
+}
+.session-error-detail .error-display-detail-btn {
+  color: rgba(255,255,255,0.75);
+  border-color: rgba(255,255,255,0.4);
+}
+.session-error-detail .error-display-detail {
+  text-align: left;
+  color: rgba(255,255,255,0.45);
+}
+
+
 .badge {
   font-size: 12px;
   padding: 4px 12px;
